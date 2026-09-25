@@ -31,6 +31,8 @@ Track 1: The maze brain (Ross, Safwan)
 This is the part can be finished completely before Saturday. Use the mms simulator. It lets you test maze-solving code without a robot, shows known and unknown walls, can simulate a crash-and-reset, and works in any language. There's a Java template, but write it in C++ using the mms-cpp template. The ESP32 is programmed in Arduino C++, which is close enough to Java that your OOP knowledge carries over, and the code will move straight onto the robot. 
 github
 
+https://github.com/mackorone/mms
+
 The key design choice is to keep the maze logic separate from movement. Write a small interface with functions like wallLeft(), wallFront(), wallRight(), moveForward(n), turnLeft() and turnRight(). In the simulator these call mms. On Saturday you replace them with your real motor and sensor code, and nothing else changes.
 
 Build the features in this order:
