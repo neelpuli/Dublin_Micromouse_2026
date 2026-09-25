@@ -127,17 +127,49 @@ HOW TO TEST:
     Rotate sensor and see at which angle it behaves insensibly.
 
 
+SAFETY:
+• Never connect USB and the external 5 V at the same time. 
+  Make the buck-to-ESP32 5 V connection one removable jumper wire: pull it before plugging in USB.
+• For bench testing with Serial Monitor: 
+  USB powers the ESP32, the battery still powers VM, and the 5 V jumper is out. 
+  Grounds stay joined through the driver.
+• Before the first power-up, use the multimeter's beep (continuity) mode between the 5 V and GND rails, 
+  then 3.3 V and GND. A beep means a short: find it before connecting power.
+• For the first 5 seconds of any new power-up, watch and sniff. 
+  Anything hot or a burning smell: unplug the battery immediately.
+• Unplug the battery whenever you solder or rewire.
+• Test motors with the wheels off the table (mouse sitting on a roll of tape), 
+  so it can't drive off the bench.
+• A swollen, dented or hot battery gets handed to the organisers, not used.
 
 
 
-DFRobot SEN0142 IMU (MPU6050)
-• A 3-axis gyro and 3-axis accelerometer at I2C address 0x68. Works from 3–5 V; use 3.3 V. DFRobot wiki
-• You only need the gyro's Z axis: how fast the mouse is rotating. Add that up over time and you get heading.
-• The gyro reads slightly non-zero when still (bias). Measure the bias for 1 s at startup with the mouse perfectly still, then subtract it.
-• Mount it flat and firmly. Anywhere on the chassis works, since every point on a rigid body rotates at the same rate.
-Buck converter (2S battery to 5 V)
-• Converts 7–8.4 V down to 5 V efficiently. A small trim screw sets the output voltage.
-• Pins are usually IN+, IN−, OUT+, OUT−. Swapping IN and OUT usually destroys it.
-2S battery
-• Two lithium cells in series: 8.4 V full, about 7.4 V in the middle, treat about 6.6 V (3.3 V per cell) as empty.
-• Check which wire is + before anything else. Section 5 has the safety rules.
+
+Here's the wiring order, safest first. Keep the battery unplugged until step 7.
+
+1
+Get the answers first
+Ask the organisers what they approve for the 6 V motors on an 8.4 V battery, and which ESP32-C6 board you have. Then fill every GPIO blank in the wiring table and pins.h before picking up an iron.
+2
+Solder the header pins
+Solder headers onto the ESP32, motor driver, IMU and the three VL53L0X boards. Beep-test each pin with the multimeter so it connects to its pad and not to its neighbour.
+3
+Set the buck to 5.00 V
+With nothing on its output, connect the battery to IN+ and IN−, turn the trim screw until OUT reads 5.00 V, then disconnect the battery.
+4
+Build the power and ground rails
+Join every GND together. Run battery + (through the switch) to the driver's VM and the buck's IN+. Run buck OUT+ to the ESP32's 5V pin through one removable jumper. Take the ESP32's 3V3 pin out as your 3.3 V rail.
+5
+Wire the motors and driver
+Driver VCC to 3.3 V. DIR1, PWM1, DIR2 and PWM2 to their GPIOs. M1+/M1− to the left motor's two motor wires, M2+/M2− to the right.
+6
+Wire the encoders
+Each encoder's VCC to 3.3 V (never 5 V) and GND to ground. Its A and B outputs go to their GPIOs. Read the labels on the encoder board rather than trusting wire colours, and keep these wires away from motor wires.
+7
+Wire the I2C sensors
+One SDA wire and one SCL wire shared by all three VL53L0X boards and the IMU. Every sensor's power goes to 3.3 V and GND. Each VL53L0X's XSHUT goes to its own GPIO; leave GPIO1 unconnected. Label them L, F, R.
+8
+Check, then power up
+Beep-test 5 V to GND and 3.3 V to GND: a beep means a short, so find it first. Then connect the battery with the wheels off the table, and watch for heat or smell for 5 seconds. Run Tests 1–4 to confirm each part works.
+
+The rule behind all of this: only the driver's VM and the ESP32's 5V pin ever see more than 3.3 V, and you never plug in USB while the 5 V jumper is connected. The wiring table in section 6 of the guide has every pin row to tick off as you go.
