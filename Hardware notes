@@ -1,0 +1,9 @@
+Part:                                  Its job:                                                How it talks to the ESP32
+ESP32-C6                               The brain; runs your code                               -
+DFRobot DRI0044 motor driver           Turns 3.3 V signals into motor power                    2 direction pins + 2 PWM pins
+2× GA12-N20 motors                     Turn the wheels                                         Through the driver
+2× Hall encoders (on the motors)       Count wheel rotation, which gives distance              2 pins each, using interrupts
+3× VL53L0X                             Measure distance to the left, front and right walls     I2C bus (2 shared wires) + 1 XSHUT pin each
+DFRobot SEN0142 IMU (MPU6050)          Gyro measures turning rate, which gives heading         Same I2C bus
+Buck converter                         Drops the 8.4 V battery to 5 V for the ESP32            Power Only
+2S battery                             Energy for everything                                   Power Only
