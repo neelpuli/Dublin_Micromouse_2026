@@ -1,0 +1,34 @@
+HOW TO INSTALL ARDUINO IDE WITH NECESSARY COMPONENTS:
+1. install arduino IDE
+
+2. Go to File > Preferences (Arduino > Settings on macOS). 
+   In "Additional boards manager URLs", paste: https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json — then click OK.
+
+3. Open Tools > Board > Boards Manager, search "esp32", and install the package by Espressif Systems. 
+   Make sure the version installed starts with 3.x (not the older 2.x line) — the version number shows right in the Boards Manager list before you hit Install.
+
+4. Go to Tools > Board > esp32 > ESP32C6 Dev Module (exact name may vary slightly, e.g. "ESP32C6 Dev Module"). Then plug in your board and pick the right port under Tools > Port.
+
+5. Open Sketch > Include Library > Manage Libraries, search "VL53L0X", and install the one with Author/Maintainer listed as Pololu (there are a few VL53L0X libraries from other maintainers
+   Make sure you grab Pololu's, since that's the one the organisers likely built their examples around).
+
+6. In the same Library Manager, search "MPU6050". Common choices are "MPU6050" by Electronic Cats or "Adafruit MPU6050" 
+   if the organisers haven't specified which, either works fine for basic accelerometer/gyro reading, 
+   but note the API calls differ slightly between them, so pick one and stick with it once you see which example code style the organisers use.
+
+7. Restart the IDE, then check File > Examples — you should see VL53L0X and MPU6050 example sketches listed near the bottom under "Examples from Custom Libraries". 
+   Open one, select your ESP32-C6 board/port, and try a compile (Verify, not Upload) to confirm everything's linked up correctly before the actual event.
+
+One thing worth flagging: since the organisers haven't specified which MPU6050 library, 
+if their video series or docs later say to use a specific one (Electronic Cats vs. Adafruit vs. i2cdevlib), 
+it's worth swapping to match — the function names and calibration steps differ enough that mismatched example code won't just drop in. 
+Worth checking the organisers' site again closer to the event date in case the promised docs go up.
+
+
+Components List:
+   ESP32-C6 microcontroller
+   DFRobot DRI0044 motor driver
+   DFRobot SEN0142 IMU (MPU6050 gyro and accelerometer)
+   3× VL53L0X distance sensors
+   2S battery to 5 V buck converter
+   2× GA12-N20 micro gear motors with Hall encoders (about 500 rpm with no load)
