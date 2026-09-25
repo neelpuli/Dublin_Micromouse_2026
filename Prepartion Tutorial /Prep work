@@ -23,3 +23,12 @@ One thing worth flagging: since the organisers haven't specified which MPU6050 l
 if their video series or docs later say to use a specific one (Electronic Cats vs. Adafruit vs. i2cdevlib), 
 it's worth swapping to match — the function names and calibration steps differ enough that mismatched example code won't just drop in. 
 Worth checking the organisers' site again closer to the event date in case the promised docs go up.
+
+
+Components List:
+   ESP32-C6 microcontroller
+   DFRobot DRI0044 motor driver
+   DFRobot SEN0142 IMU (MPU6050 gyro and accelerometer)
+   3× VL53L0X distance sensors
+   2S battery to 5 V buck converter
+   2× GA12-N20 micro gear motors with Hall encoders (about 500 rpm with no load)
