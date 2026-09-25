@@ -7,3 +7,77 @@ DFRobot DRI0044 motor driver           Turns 3.3 V signals into motor power     
 DFRobot SEN0142 IMU (MPU6050)          Gyro measures turning rate, which gives heading         Same I2C bus
 Buck converter                         Drops the 8.4 V battery to 5 V for the ESP32            Power Only
 2S battery                             Energy for everything                                   Power Only
+
+
+• Voltage and current:
+  Chips use milliamps, motors use hundreds of milliamps, and far more when stalled.
+
+• Common ground: Every GND in the mouse must connect together. 
+  A signal is only "3.3 V" relative to ground, so a missing ground causes random, confusing behaviour.
+
+• 3.3 V logic: ESP32 pins output 3.3 V and are damaged by 5 V. 
+  The simple rule: power every sensor and both encoders from the ESP32's 3.3 V pin, so no signal wire can ever carry more than 3.3 V.
+
+• Digital pins. A pin is HIGH (3.3 V) or LOW (0 V). The motor driver's DIR pins use this to pick direction.
+
+• PWM. Switching a pin on and off very fast, here 20,000 times a second. 
+  The fraction of time it is on sets the average power, so 50% on means roughly half speed. You write it as 0–255.
+
+• I2C. A two-wire bus (SDA = data, SCL = clock) shared by many devices, each with an address. 
+  All three VL53L0X sensors start at the same address, 0x29, so your code must give them new addresses at every power-up.
+  The IMU sits at 0x68.
+
+• Interrupts. Encoders send thousands of pulses a second. An interrupt makes the ESP32 run a tiny function on every pulse so none are missed. 
+  Variables changed inside an interrupt must be declared volatile.
+
+
+A short circuit is battery + touching battery − directly; with a lithium battery that means heat, smoke or fire.
+
+
+Every part below runs from 3.3 V except the motor driver's motor supply and the ESP32's 5 V input. 
+Check each board's printed labels on the day; wire colours vary between batches, labels don't.
+
+ESP32-C6 (the brain)
+• A 160 MHz microcontroller programmed over USB from the Arduino IDE. Its pins are 3.3 V and NOT 5 V tolerant.
+• Avoid on most C6 boards: GPIO8, GPIO9 and GPIO15 (boot pins), GPIO12 and GPIO13 (USB), GPIO16 and GPIO17 (serial). 
+  Confirm against your board's own pinout diagram.
+• The BOOT button is usually GPIO9. Once your program is running you can read it as your run-mode button.
+
+DFRobot DRI0044 motor driver (TB6612FNG chip)
+• Each motor needs two signals: DIR (HIGH or LOW sets direction) and PWM (sets speed). That's four ESP32 pins in total. DFRobot wiki
+• Power pins: VCC is logic power (2.7–5.5 V), so connect it to 3.3 V. VM is motor power (2.5–12 V), from the battery; see section 5.
+• Outputs: M1+/M1− to the left motor, M2+/M2− to the right. 1.2 A continuous per channel is plenty for N20 motors.
+• A motor spinning the wrong way is fixed by swapping its two wires or flipping its DIR in code. Nothing breaks.
+
+2× GA12-N20 motors with Hall encoders
+• Each has a 6-wire cable: two motor wires (to the driver), encoder VCC, encoder GND, and encoder outputs A and B. 
+  Read the labels on the little encoder board; never assume by colour.
+• Rated 6 V and about 500 rpm with no load at the output shaft.
+• The encoder is a magnet on the motor shaft passing two Hall sensors. 
+  A and B pulse slightly out of step, so the order they change tells you direction.
+• Power encoder VCC from 3.3 V so A and B are 3.3 V signals.
+• Don't calculate counts per wheel turn from the datasheet. Measure it: turn the wheel 10 times by hand and divide the count by 10.
+
+3× VL53L0X distance sensors (left, front, right)
+• A laser time-of-flight sensor that reports distance in millimetres. 
+  Expect a few millimetres of noise and a fixed offset that you measure and subtract.
+HOW TO FIND OFFSET:
+  1. Put the sensor facing a large, flat wall.
+  2. Measure the actual distance with a ruler/caliper.
+  3. Take many VL53L0X readings.
+  4. Average them.
+  5. offset = sensor reading − actual distance
+• Pins: VIN (to 3.3 V), GND, SDA, SCL, XSHUT (shutdown), GPIO1 (leave unconnected).
+• All three wake up at I2C address 0x29. Your setup code holds all three off with XSHUT, wakes one, renames it, then the next. This must happen at every power-up.
+• The beam is a cone about 25° wide, which is why a badly angled side sensor sees the floor or over the wall top.
+DFRobot SEN0142 IMU (MPU6050)
+• A 3-axis gyro and 3-axis accelerometer at I2C address 0x68. Works from 3–5 V; use 3.3 V. DFRobot wiki
+• You only need the gyro's Z axis: how fast the mouse is rotating. Add that up over time and you get heading.
+• The gyro reads slightly non-zero when still (bias). Measure the bias for 1 s at startup with the mouse perfectly still, then subtract it.
+• Mount it flat and firmly. Anywhere on the chassis works, since every point on a rigid body rotates at the same rate.
+Buck converter (2S battery to 5 V)
+• Converts 7–8.4 V down to 5 V efficiently. A small trim screw sets the output voltage.
+• Pins are usually IN+, IN−, OUT+, OUT−. Swapping IN and OUT usually destroys it.
+2S battery
+• Two lithium cells in series: 8.4 V full, about 7.4 V in the middle, treat about 6.6 V (3.3 V per cell) as empty.
+• Check which wire is + before anything else. Section 5 has the safety rules.
