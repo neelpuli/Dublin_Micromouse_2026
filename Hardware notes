@@ -68,8 +68,68 @@ HOW TO FIND OFFSET:
   4. Average them.
   5. offset = sensor reading − actual distance
 • Pins: VIN (to 3.3 V), GND, SDA, SCL, XSHUT (shutdown), GPIO1 (leave unconnected).
-• All three wake up at I2C address 0x29. Your setup code holds all three off with XSHUT, wakes one, renames it, then the next. This must happen at every power-up.
+• All three wake up at I2C address 0x29. Your setup code holds all three off with XSHUT (Like an on and off switch controlled by the ESP32)
+  wakes one, renames it, then the next. 
+  This must happen at every power-up.
+CODE SHOULD LOOK SOMETHING LIKE THIS on every power-up:
+void setup() {
+    // Configure XSHUT pins
+    // Turn all sensors OFF
+    leftOff();
+    frontOff();
+    rightOff();
+
+    // Start LEFT
+    leftOn();
+    left.setAddress(0x30);
+
+    // Start FRONT
+    frontOn();
+    front.setAddress(0x31);
+
+    // Start RIGHT
+    rightOn();
+    right.setAddress(0x32);
+}
+
 • The beam is a cone about 25° wide, which is why a badly angled side sensor sees the floor or over the wall top.
+  Don't assume the sensor measures along one infinitely thin straight ray. It has a relatively wide field of view.
+  Mechanical alignment of the VL53L0Xs is part of the sensor calibration, not just an aesthetics
+HOW TO TEST:
+1. Start with one sensor, Have it continuously print:
+    distance: 103 mm
+    distance: 104 mm
+    distance: 102 mm
+    distance: 103 mm
+    ...
+  You want a simple way to see the raw readings.
+
+2. Test the basic accuracy
+   Put the sensor on a table and put a large, flat, light-coloured wall/object in front of it.
+   Start at something like 100 mm.
+   Measure the actual distance with a ruler:
+
+    Sensor ●────────────────│ wall
+           <---- 100 mm ---->
+    
+    Then collect 50–100 readings.
+    Calculate the average.
+    
+    Eg:
+    Actual distance:     100 mm
+    Average reading:     104 mm
+    Offset = 104 - 100
+           = +4 mm
+
+3. Repeat with several distances
+
+4. Now test the 25° field of view
+    Rotate sensor and see at which angle it behaves insensibly.
+
+
+
+
+
 DFRobot SEN0142 IMU (MPU6050)
 • A 3-axis gyro and 3-axis accelerometer at I2C address 0x68. Works from 3–5 V; use 3.3 V. DFRobot wiki
 • You only need the gyro's Z axis: how fast the mouse is rotating. Add that up over time and you get heading.
