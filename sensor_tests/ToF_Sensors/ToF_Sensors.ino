@@ -1,29 +1,31 @@
 // =====================================================================
-// STEP 3 - One ToF distance sensor (LEFT)
+// STEP 4 - Two ToF distance sensors (LEFT + FRONT)
 // =====================================================================
 // WIRING
 //   All ToF sensors share power and I2C:
 //     VIN -> ESP32 3V3        GND -> ESP32 GND
 //     SDA -> ESP32 GPIO6      SCL -> ESP32 GPIO7
 //   Each sensor gets its OWN XSHUT wire (this is how they're told apart):
-//     LEFT  sensor XSHUT -> GPIO18
+//     LEFT  sensor XSHUT -> GPIO18   (already wired in step 3)
+//     FRONT sensor XSHUT -> GPIO19   (new)
 //   Only connect the sensors listed here. An extra sensor with its XSHUT
 //   unconnected wakes up at 0x29 on its own and breaks the others.
 //   The IMU from step 2 can stay connected - it doesn't clash.
 //
 // WHAT YOU'LL SEE
 //   Serial Monitor when it works:
-//       STEP 3: one ToF sensor
+//       STEP 4: two ToF sensors
 //         ToF L  XSHUT=GPIO18  addr=0x30  PASS
-//       1/1 sensors OK
+//         ToF F  XSHUT=GPIO19  addr=0x31  PASS
+//       2/2 sensors OK
 //       ------------
-//       L:142 mm          <- hand about 14cm in front of the sensor
-//       L:87 mm           <- hand moved closer
-//       L:---             <- nothing in front of it (normal, = no wall)
-//   If it fails:
-//         ToF L  XSHUT=GPIO18  addr=0x30  FAIL
-//           -> check VIN->3V3, GND, SDA/SCL, and XSHUT->GPIO18
-//       ...and every reading line shows L:FAIL
+//       L:142 mm  F:310 mm
+//       L:---     F:95 mm       <- "---" = nothing in range (normal)
+//   Wave a hand in front of each sensor in turn: only THAT one's number
+//   should change. If covering the left sensor changes F, the XSHUT wires
+//   are swapped.
+//   If one fails, it shows FAIL at startup (with what to check), and
+//   L:FAIL or F:FAIL on every line after.
 //
 // LIBRARY: Library Manager -> "VL53L0X" by Pololu (NOT Adafruit_VL53L0X)
 // =====================================================================
@@ -48,6 +50,7 @@ struct Tof {
 
 Tof tofs[] = {
   {"L", 18, 0x30, VL53L0X(), false},
+  {"F", 19, 0x31, VL53L0X(), false},
 };
 constexpr uint8_t NUM_TOF = sizeof(tofs) / sizeof(tofs[0]);
 
@@ -71,7 +74,7 @@ void setup() {
   Serial.begin(115200);
   const uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 2000) {}
-  Serial.println("\nSTEP 3: one ToF sensor");
+  Serial.println("\nSTEP 4: two ToF sensors");
 
   for (auto& t : tofs) {  // every sensor asleep first
     pinMode(t.xshut, OUTPUT);
