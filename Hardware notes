@@ -1,0 +1,175 @@
+Part:                                  Its job:                                                How it talks to the ESP32
+ESP32-C6                               The brain; runs your code                               -
+DFRobot DRI0044 motor driver           Turns 3.3 V signals into motor power                    2 direction pins + 2 PWM pins
+2× GA12-N20 motors                     Turn the wheels                                         Through the driver
+2× Hall encoders (on the motors)       Count wheel rotation, which gives distance              2 pins each, using interrupts
+3× VL53L0X                             Measure distance to the left, front and right walls     I2C bus (2 shared wires) + 1 XSHUT pin each
+DFRobot SEN0142 IMU (MPU6050)          Gyro measures turning rate, which gives heading         Same I2C bus
+Buck converter                         Drops the 8.4 V battery to 5 V for the ESP32            Power Only
+2S battery                             Energy for everything                                   Power Only
+
+
+• Voltage and current:
+  Chips use milliamps, motors use hundreds of milliamps, and far more when stalled.
+
+• Common ground: Every GND in the mouse must connect together. 
+  A signal is only "3.3 V" relative to ground, so a missing ground causes random, confusing behaviour.
+
+• 3.3 V logic: ESP32 pins output 3.3 V and are damaged by 5 V. 
+  The simple rule: power every sensor and both encoders from the ESP32's 3.3 V pin, so no signal wire can ever carry more than 3.3 V.
+
+• Digital pins. A pin is HIGH (3.3 V) or LOW (0 V). The motor driver's DIR pins use this to pick direction.
+
+• PWM. Switching a pin on and off very fast, here 20,000 times a second. 
+  The fraction of time it is on sets the average power, so 50% on means roughly half speed. You write it as 0–255.
+
+• I2C. A two-wire bus (SDA = data, SCL = clock) shared by many devices, each with an address. 
+  All three VL53L0X sensors start at the same address, 0x29, so your code must give them new addresses at every power-up.
+  The IMU sits at 0x68.
+
+• Interrupts. Encoders send thousands of pulses a second. An interrupt makes the ESP32 run a tiny function on every pulse so none are missed. 
+  Variables changed inside an interrupt must be declared volatile.
+
+
+A short circuit is battery + touching battery − directly; with a lithium battery that means heat, smoke or fire.
+
+
+Every part below runs from 3.3 V except the motor driver's motor supply and the ESP32's 5 V input. 
+Check each board's printed labels on the day; wire colours vary between batches, labels don't.
+
+ESP32-C6 (the brain)
+• A 160 MHz microcontroller programmed over USB from the Arduino IDE. Its pins are 3.3 V and NOT 5 V tolerant.
+• Avoid on most C6 boards: GPIO8, GPIO9 and GPIO15 (boot pins), GPIO12 and GPIO13 (USB), GPIO16 and GPIO17 (serial). 
+  Confirm against your board's own pinout diagram.
+• The BOOT button is usually GPIO9. Once your program is running you can read it as your run-mode button.
+
+DFRobot DRI0044 motor driver (TB6612FNG chip)
+• Each motor needs two signals: DIR (HIGH or LOW sets direction) and PWM (sets speed). That's four ESP32 pins in total. DFRobot wiki
+• Power pins: VCC is logic power (2.7–5.5 V), so connect it to 3.3 V. VM is motor power (2.5–12 V), from the battery; see section 5.
+• Outputs: M1+/M1− to the left motor, M2+/M2− to the right. 1.2 A continuous per channel is plenty for N20 motors.
+• A motor spinning the wrong way is fixed by swapping its two wires or flipping its DIR in code. Nothing breaks.
+
+2× GA12-N20 motors with Hall encoders
+• Each has a 6-wire cable: two motor wires (to the driver), encoder VCC, encoder GND, and encoder outputs A and B. 
+  Read the labels on the little encoder board; never assume by colour.
+• Rated 6 V and about 500 rpm with no load at the output shaft.
+• The encoder is a magnet on the motor shaft passing two Hall sensors. 
+  A and B pulse slightly out of step, so the order they change tells you direction.
+• Power encoder VCC from 3.3 V so A and B are 3.3 V signals.
+• Don't calculate counts per wheel turn from the datasheet. Measure it: turn the wheel 10 times by hand and divide the count by 10.
+
+3× VL53L0X distance sensors (left, front, right)
+• A laser time-of-flight sensor that reports distance in millimetres. 
+  Expect a few millimetres of noise and a fixed offset that you measure and subtract.
+HOW TO FIND OFFSET:
+  1. Put the sensor facing a large, flat wall.
+  2. Measure the actual distance with a ruler/caliper.
+  3. Take many VL53L0X readings.
+  4. Average them.
+  5. offset = sensor reading − actual distance
+• Pins: VIN (to 3.3 V), GND, SDA, SCL, XSHUT (shutdown), GPIO1 (leave unconnected).
+• All three wake up at I2C address 0x29. Your setup code holds all three off with XSHUT (Like an on and off switch controlled by the ESP32)
+  wakes one, renames it, then the next. 
+  This must happen at every power-up.
+CODE SHOULD LOOK SOMETHING LIKE THIS on every power-up:
+void setup() {
+    // Configure XSHUT pins
+    // Turn all sensors OFF
+    leftOff();
+    frontOff();
+    rightOff();
+
+    // Start LEFT
+    leftOn();
+    left.setAddress(0x30);
+
+    // Start FRONT
+    frontOn();
+    front.setAddress(0x31);
+
+    // Start RIGHT
+    rightOn();
+    right.setAddress(0x32);
+}
+
+• The beam is a cone about 25° wide, which is why a badly angled side sensor sees the floor or over the wall top.
+  Don't assume the sensor measures along one infinitely thin straight ray. It has a relatively wide field of view.
+  Mechanical alignment of the VL53L0Xs is part of the sensor calibration, not just an aesthetics
+HOW TO TEST:
+1. Start with one sensor, Have it continuously print:
+    distance: 103 mm
+    distance: 104 mm
+    distance: 102 mm
+    distance: 103 mm
+    ...
+  You want a simple way to see the raw readings.
+
+2. Test the basic accuracy
+   Put the sensor on a table and put a large, flat, light-coloured wall/object in front of it.
+   Start at something like 100 mm.
+   Measure the actual distance with a ruler:
+
+    Sensor ●────────────────│ wall
+           <---- 100 mm ---->
+    
+    Then collect 50–100 readings.
+    Calculate the average.
+    
+    Eg:
+    Actual distance:     100 mm
+    Average reading:     104 mm
+    Offset = 104 - 100
+           = +4 mm
+
+3. Repeat with several distances
+
+4. Now test the 25° field of view
+    Rotate sensor and see at which angle it behaves insensibly.
+
+
+SAFETY:
+• Never connect USB and the external 5 V at the same time. 
+  Make the buck-to-ESP32 5 V connection one removable jumper wire: pull it before plugging in USB.
+• For bench testing with Serial Monitor: 
+  USB powers the ESP32, the battery still powers VM, and the 5 V jumper is out. 
+  Grounds stay joined through the driver.
+• Before the first power-up, use the multimeter's beep (continuity) mode between the 5 V and GND rails, 
+  then 3.3 V and GND. A beep means a short: find it before connecting power.
+• For the first 5 seconds of any new power-up, watch and sniff. 
+  Anything hot or a burning smell: unplug the battery immediately.
+• Unplug the battery whenever you solder or rewire.
+• Test motors with the wheels off the table (mouse sitting on a roll of tape), 
+  so it can't drive off the bench.
+• A swollen, dented or hot battery gets handed to the organisers, not used.
+
+
+
+
+Here's the wiring order, safest first. Keep the battery unplugged until step 7.
+
+1
+Get the answers first
+Ask the organisers what they approve for the 6 V motors on an 8.4 V battery, and which ESP32-C6 board you have. Then fill every GPIO blank in the wiring table and pins.h before picking up an iron.
+2
+Solder the header pins
+Solder headers onto the ESP32, motor driver, IMU and the three VL53L0X boards. Beep-test each pin with the multimeter so it connects to its pad and not to its neighbour.
+3
+Set the buck to 5.00 V
+With nothing on its output, connect the battery to IN+ and IN−, turn the trim screw until OUT reads 5.00 V, then disconnect the battery.
+4
+Build the power and ground rails
+Join every GND together. Run battery + (through the switch) to the driver's VM and the buck's IN+. Run buck OUT+ to the ESP32's 5V pin through one removable jumper. Take the ESP32's 3V3 pin out as your 3.3 V rail.
+5
+Wire the motors and driver
+Driver VCC to 3.3 V. DIR1, PWM1, DIR2 and PWM2 to their GPIOs. M1+/M1− to the left motor's two motor wires, M2+/M2− to the right.
+6
+Wire the encoders
+Each encoder's VCC to 3.3 V (never 5 V) and GND to ground. Its A and B outputs go to their GPIOs. Read the labels on the encoder board rather than trusting wire colours, and keep these wires away from motor wires.
+7
+Wire the I2C sensors
+One SDA wire and one SCL wire shared by all three VL53L0X boards and the IMU. Every sensor's power goes to 3.3 V and GND. Each VL53L0X's XSHUT goes to its own GPIO; leave GPIO1 unconnected. Label them L, F, R.
+8
+Check, then power up
+Beep-test 5 V to GND and 3.3 V to GND: a beep means a short, so find it first. Then connect the battery with the wheels off the table, and watch for heat or smell for 5 seconds. Run Tests 1–4 to confirm each part works.
+
+The rule behind all of this: only the driver's VM and the ESP32's 5V pin ever see more than 3.3 V, and you never plug in USB while the 5 V jumper is connected. The wiring table in section 6 of the guide has every pin row to tick off as you go.
